@@ -1,0 +1,7 @@
+[package]
+name = "atsunuri-core"
+version = "0.1.0"
+edition = "2024"
+description = "Canvas and brush engine for Atsunuri, independent of windowing and GPU code."
+
+[dependencies]
