@@ -7,7 +7,9 @@
 use std::sync::Mutex;
 
 use smithay_client_toolkit::dispatch2::Dispatch2;
-use wayland_client::{Connection, Proxy, QueueHandle, WEnum, event_created_child};
+use wayland_client::{
+    Connection, Proxy, QueueHandle, WEnum, event_created_child, protocol::wl_surface::WlSurface,
+};
 use wayland_protocols::wp::tablet::zv2::client::{
     zwp_tablet_manager_v2::ZwpTabletManagerV2,
     zwp_tablet_pad_group_v2::{self, ZwpTabletPadGroupV2},
@@ -33,7 +35,9 @@ pub enum ToolKind {
 #[derive(Debug, Clone, Default)]
 pub struct ToolFrame {
     pub kind: ToolKind,
-    /// Surface-local position in logical pixels.
+    /// The surface the tool is over; the window or part of its decorations.
+    pub surface: Option<WlSurface>,
+    /// Position relative to `surface`, in logical pixels.
     pub position: (f64, f64),
     /// Normalized pressure in `[0, 1]`.
     pub pressure: f64,
@@ -44,6 +48,10 @@ pub struct ToolFrame {
     /// The tip left the surface in this frame.
     pub up: bool,
     pub moved: bool,
+    /// Serial of the latest `down` event, for starting window moves and resizes.
+    pub down_serial: u32,
+    /// Timestamp of the frame in milliseconds.
+    pub time: u32,
 }
 
 pub struct ManagerData;
@@ -128,22 +136,32 @@ impl Dispatch2<ZwpTabletToolV2, App> for ToolData {
                     _ => ToolKind::Other,
                 };
             }
-            Event::ProximityIn { .. } => state.proximity_in = true,
+            Event::ProximityIn { surface, .. } => {
+                state.surface = Some(surface);
+                state.proximity_in = true;
+            }
             Event::ProximityOut => state.proximity_out = true,
-            Event::Down { .. } => state.down = true,
+            Event::Down { serial } => {
+                state.down = true;
+                state.down_serial = serial;
+            }
             Event::Up => state.up = true,
             Event::Motion { x, y } => {
                 state.position = (x, y);
                 state.moved = true;
             }
             Event::Pressure { pressure } => state.pressure = pressure as f64 / 65535.0,
-            Event::Frame { .. } => {
+            Event::Frame { time } => {
+                state.time = time;
                 let frame = state.clone();
                 state.proximity_in = false;
                 state.proximity_out = false;
                 state.down = false;
                 state.up = false;
                 state.moved = false;
+                if frame.proximity_out {
+                    state.surface = None;
+                }
                 drop(state);
                 app.tool_frame(&frame);
             }

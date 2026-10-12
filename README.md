@@ -10,6 +10,8 @@ Iteration 1: a single white 1920×1080 canvas and one round black brush.
 - Pen pressure controls brush size.
 - The mouse also paints, at full pressure.
 - `C` clears the canvas, `Esc` quits.
+- On desktops that leave window decorations to apps (GNOME), Atsunuri draws
+  its own Adwaita-style title bar. It works with both the mouse and the pen.
 
 Wayland only for now. X11 and macOS come later.
 
